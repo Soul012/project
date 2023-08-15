@@ -17,7 +17,7 @@ export djxsReferer='抓取的Referer1@抓取的Referer2'
 圈X配置如下，其他自行测试，60分钟运行一次，宝箱60分钟开一次
 [task_local]
 #得间小说
-0 6-23 * * * https://raw.githubusercontent.com/YaphetS0903/JStest/main/djxs.js, tag=得间小说, enabled=true
+50 6-21 * * * https://raw.githubusercontent.com/YaphetS0903/JStest/main/djxs.js, tag=得间小说, enabled=true
 [rewrite_local]
 #得间小说
 https://dj.palmestore.com/zycl/gold/receive? url script-request-header https://raw.githubusercontent.com/YaphetS0903/JStest/main/djxs.js
