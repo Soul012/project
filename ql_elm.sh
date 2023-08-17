@@ -1,7 +1,5 @@
-/*
-cron: 30 8,12,16 * * *
-const $ = new Env("饿了么");
-*/
+#cron: 30 8,12,16 * * *
+#const $ = new Env("饿了么");
 #!/bin/bash
 # new Env('萝卜-饿了么');
 # 环境变量 elmck  值：SID=xxxx; cookie2=xxxx;   （按格式来）
