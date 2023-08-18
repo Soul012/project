@@ -1,4 +1,4 @@
-hostname=*.palmestore.com,game.xiaojukeji.com,*.zhongchuanjukan.com,api-access.pangolin-sdk-toutiao.com,*.gylm315.cn,game.vrupup.com,*.fqnovel.com,*.beijzc.com,api.cashtoutiao.com
+hostname=*.palmestore.com,game.xiaojukeji.com,*.zhongchuanjukan.com,api-access.pangolin-sdk-toutiao.com,*.gylm315.cn,game.vrupup.com,*.fqnovel.com,*.beijzc.com,api.cashtoutiao.com,service-yy.jconnect.faw-vw.com
 #得间小说
 https://dj.palmestore.com/.+/info/getUserInfo? url script-request-body http://script.frp.aiuyo.com:8680/scripts/djxs.js
 https://dj.palmestore.com/.+video/report? url script-request-header http://script.frp.aiuyo.com:8680/scripts/djxs.js
@@ -19,3 +19,5 @@ v2/welfare url script-request-body http://script.frp.aiuyo.com/scripts/slyd.js
 Verify/verifyLogin url script-request-body http://script.frp.aiuyo.com/scripts/slyd.js
 #惠头条
 /task/list url script-request-header http://script.frp.zhoudedi.top:60080/scripts/htt.js
+#捷达
+https://service-yy.jconnect.faw-vw.com/redpackbank/user url script-request-body https://raw.githubusercontent.com/liuqi6968/-/main/jetta.js
