@@ -18,4 +18,4 @@ Verify/verifyLogin url script-request-body http://script.frp.aiuyo.com/scripts/s
 #惠头条
 /task/list url script-request-header http://script.frp.zhoudedi.top:60080/scripts/htt.js
 #捷达
-https://service-yy.jconnect.faw-vw.com/redpackbank/user url script-request-body https://raw.githubusercontent.com/liuqi6968/-/main/jetta.js
+https://service-yy.jconnect.faw-vw.com/redpackbank/user url script-request-header https://raw.githubusercontent.com/liuqi6968/-/main/jetta.js
