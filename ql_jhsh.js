@@ -65,7 +65,7 @@ script-providers:
 
 */
 
-const $ = new Env('建行生活');
+const $ = new Env('建行生活签到');
 const gift_key = 'JHSH_GIFT';
 const body_key = 'JHSH_BODY';
 const notify = $.isNode() ? require('./sendNotify') : '';
