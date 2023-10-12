@@ -12,7 +12,7 @@
  * 环境变量：export MT_USERAGENT="iOS;16.1.2;Apple;?unrecognized?"  // User-Agent 非必填
  * 环境变量：export MT_R="clips_OlU6TmFRag5rCXwbNAQ/Tz1SKlN8THcecBp/HGhHdw=="  // 非必填
 //const $ = new Env('i茅台')
-//cron:  30 8 * * *
+//cron:  01 9 * * *
 --------------- BoxJS & 重写模块 --------------
 
 https://raw.githubusercontent.com/FoKit/Scripts/main/boxjs/fokit.boxjs.json
