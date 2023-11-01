@@ -65,17 +65,15 @@ script-providers:
 
 */
 
-const $ = new Env('建行生活签到');
-const gift_key = 'JHSH_GIFT';
-const body_key = 'JHSH_BODY';
+const $ = new Env('建行生活');
 const notify = $.isNode() ? require('./sendNotify') : '';
-let giftType = ($.isNode() ? process.env.JHSH_GIFT : $.getdata(gift_key)) || '2';
-let bodyStr = ($.isNode() ? process.env.JHSH_BODY : $.getdata(body_key)) || '';
-let bodyArr = bodyStr ? bodyStr.split("|") : [], message = '';
-let giftMap = {
-  "1": "打车",
-  "2": "外卖"
-};
+let AppId = '1472477795', giftMap = { "1": "打车", "2": "外卖", "3": "骑行" }, message = '';
+let giftType = ($.isNode() ? process.env.JHSH_GIFT : $.getdata('JHSH_GIFT')) || '2';  // 奖励类型，默认领取'外卖'券
+let bodyStr = ($.isNode() ? process.env.JHSH_BODY : $.getdata('JHSH_BODY')) || '';  // 签到所需的 body
+let autoLoginInfo = ($.isNode() ? process.env.JHSH_LOGIN_INFO : $.getdata('JHSH_LOGIN_INFO')) || '';  // 刷新 session 所需的数据
+let AppVersion = ($.isNode() ? process.env.JHSH_VERSION : $.getdata('JHSH_VERSION')) || '2.1.5.002';  // 最新版本号，获取失败时使用
+let bodyArr = bodyStr ? bodyStr.split("|") : [];
+let bodyArr2 = autoLoginInfo ? autoLoginInfo.split("|") : [];
 $.is_debug = ($.isNode() ? process.env.IS_DEDUG : $.getdata('is_debug')) || 'false';
 
 if (isGetCookie = typeof $request !== `undefined`) {
@@ -83,25 +81,33 @@ if (isGetCookie = typeof $request !== `undefined`) {
   $.done();
 } else {
   !(async () => {
-    if (!bodyArr[0]) {
+    if (!autoLoginInfo || !bodyStr) {
       $.msg($.name, '❌ 请先获取建行生活Cookie。');
       return;
     }
-    console.log(`共有[${bodyArr.length}]个建行生活账号\n`);
+    console.log(`\n共有[${bodyArr.length}]个建行生活账号\n`);
+    await getLatestVersion();  // 获取版本信息
     for (let i = 0; i < bodyArr.length; i++) {
       if (bodyArr[i]) {
         $.index = i + 1;
-        $.info = JSON.parse(bodyArr[i])
+        $.token = '';
+        $.info = JSON.parse(bodyArr[i]);
+        $.info2 = JSON.parse(bodyArr2[i]);
         $.giftList = [];
         $.giftList2 = [];
         $.getGiftMsg = "";
         $.isGetGift = false;
-        console.log(`===== 账号[${$.info?.USR_TEL || $.index}]开始签到 =====\n`);
-        if (!$.info?.MID) {
-          message += `🎉 账号 [${hideSensitiveData($.info?.USR_TEL, 3, 4) || $.index}] 缺少MID参数，请重新获取Cookie。\n`;
+        $.DeviceId = $.info2['DeviceId'];
+        $.MBCUserAgent = $.info2['MBCUserAgent'];
+        $.ALBody = $.info2['Body'];
+        console.log(`\n===== 账号[${$.info?.USR_TEL || $.index}]开始签到 =====\n`);
+        if (!$.info?.MID || !$.DeviceId || !$.MBCUserAgent || !$.ALBody) {
+          message += `🎉 账号 [${$.info?.USR_TEL ? hideSensitiveData($.info?.USR_TEL, 3, 4) : $.index}] 缺少参数，请重新获取Cookie。\n`;
           continue;
         }
-        await main();
+        await autoLogin();  // 刷新 session
+        if (!$.token) continue;
+        await main();  // 签到主函数
         if ($.giftList.length > 0) {
           for (let j = 0; j < $.giftList.length; j++) {
             if ($.isGetGift) break;
@@ -116,7 +122,7 @@ if (isGetCookie = typeof $request !== `undefined`) {
               if (!$.continue) {
                 if (k >= 2) console.log(`领取失败，重试一次`);
                 await $.wait(1000 * 5);
-                await getGift();
+                await getGift();  // 领取奖励
                 if ($.isGetGift) break;
               }
             }
@@ -149,42 +155,107 @@ if (isGetCookie = typeof $request !== `undefined`) {
 
 // 获取签到数据
 function GetCookie() {
-  if ($request && $request.url.indexOf("A3341A040") > -1) {
+  debug($request.headers);
+  debug($request.body);
+  if (/A3341A038/.test($request.url)) {
     $.body = JSON.parse($request.body);
-    if (bodyStr.indexOf('MID') == -1) {
-      bodyStr = '';
-      $.setdata(bodyStr, body_key);
-      console.log(`用户数据缺失字段，已清空用户数据，请重新获取Cookie。`);
-    }
-    if (bodyStr.indexOf($.body?.USR_TEL) == -1) {
-      $.body['MID'] = $request.headers['MID'] || $request.headers['Mid'] || $request.headers['mid'];
-      $.body = JSON.stringify($.body);
-      console.log(`开始新增用户数据 ${$.body}`);
-      bodyArr.push($.body);
-      $.setdata(bodyArr.join('|'), body_key);
-      $.msg($.name, ``, `🎉 建行生活签到数据获取成功。`);
-    } else {
-      console.log('数据已存在，不再写入。');
+    // if (bodyStr.indexOf('MID') == -1) {
+    //   bodyStr = '';
+    //   $.setdata(bodyStr, 'JHSH_BODY');
+    //   console.log(`用户数据缺失字段，已清空用户数据，请重新获取Cookie。`);
+    // }
+    // if (bodyStr.indexOf($.body?.MEB_ID) == -1) {
+    $.body['MID'] = $request.headers['MID'] || $request.headers['Mid'] || $request.headers['mid'];
+    $.body = JSON.stringify($.body);
+    console.log(`开始新增用户数据 ${$.body}`);
+    bodyArr.push($.body);
+    $.setdata(bodyArr.join('|'), 'JHSH_BODY');
+    // } else {
+    //   console.log('数据已存在，不再写入。');
+    // }
+    $.msg($.name, ``, `🎉 建行生活签到数据获取成功。`);
+  } else if (/autoLogin/.test($request.url)) {
+    $.DeviceId = $request.headers['DeviceId'] || $request.headers['Deviceid'] || $request.headers['deviceid'];
+    $.MBCUserAgent = $request.headers['MBC-User-Agent'] || $request.headers['Mbc-user-agent'] || $request.headers['mbc-user-agent'];
+
+    if ($.DeviceId && $.MBCUserAgent && $request.body) {
+      autoLoginInfo = {
+        "DeviceId": $.DeviceId,
+        "MBCUserAgent": $.MBCUserAgent,
+        "Body": $request.body
+      }
+      $.setdata(JSON.stringify(autoLoginInfo), 'JHSH_LOGIN_INFO');
+      console.log(JSON.stringify(autoLoginInfo) + "写入成功");
     }
   }
 }
 
 
-// 签到主函数
-function main() {
+// 刷新 session
+async function autoLogin() {
   let opt = {
-    url: `https://yunbusiness.ccb.com/clp_coupon/txCtrl?txcode=A3341A040`,
+    url: `https://yunbusiness.ccb.com/clp_service/txCtrl?txcode=autoLogin`,
+    headers: {
+      'AppVersion': AppVersion,
+      'Content-Type': `application/json`,
+      'DeviceId': $.DeviceId,
+      'Accept': `application/json`,
+      'MBC-User-Agent': $.MBCUserAgent,
+      'Cookie': ''
+    },
+    body: $.ALBody
+  }
+  debug(opt)
+  return new Promise(resolve => {
+    $.post(opt, async (error, response, data) => {
+      try {
+        let result = $.toObj(data) || response.body;
+        // 如果数据未加密，则 session 未过期
+        if (result?.errCode) {
+          // {"newErrMsg":"未能处理您的请求。如有疑问，请咨询在线客服或致电95533","data":"","reqFlowNo":"","errCode":"0","errMsg":"session未失效,勿重复登录"}
+          // $.token = $.getdata('JHSH_TOKEN');
+          console.log(`${result?.errMsg}`);
+        } else {
+          const set_cookie = response.headers['set-cookie'] || response.headers['Set-cookie'] || response.headers['Set-Cookie'];
+          // !$.isNode() ? $.setdata($.token, 'JHSH_TOKEN') : '';  // 数据持久化
+          let new_cookie = $.toStr(set_cookie).match(/SESSION=([a-f0-9-]+);/);
+          if (new_cookie) {
+            $.token = new_cookie[0];
+            console.log(`✅ 刷新 session 成功!`);
+            debug(new_cookie);
+          } else {
+            message += `❌ 账号 [${$.info?.USR_TEL ? hideSensitiveData($.info?.USR_TEL, 3, 4) : $.index}] 刷新 session 失败，请重新获取Cookie。\n`;
+            console.log(`⛔️ 刷新 session 失败`);
+            debug(set_cookie);
+          }
+        }
+      } catch (error) {
+        $.log(error);
+      } finally {
+        resolve()
+      }
+    });
+  })
+}
+
+
+// 签到主函数
+async function main() {
+  let opt = {
+    url: `https://yunbusiness.ccb.com/clp_coupon/txCtrl?txcode=A3341A115`,
     headers: {
       "MID": $.info?.MID,
       "Content-Type": "application/json;charset=utf-8",
       "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_1_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148/CloudMercWebView/UnionPay/1.0 CCBLoongPay",
       "Accept": "application/json,text/javascript,*/*",
-      "content-type": "application/json"
+      "content-type": "application/json",
+      "Cookie": $.token
     },
-    body: `{"ACT_ID":"${$.info.ACT_ID}","MEB_ID":"${$.info.MEB_ID}","USR_TEL":"${$.info.USR_TEL}","REGION_CODE":"${$.info.REGION_CODE}","chnlType":"${$.info.chnlType}","regionCode":"${$.info.regionCode}"}`
+    // body: `{"ACT_ID":"${$.info.ACT_ID}","MEB_ID":"${$.info.MEB_ID}","USR_TEL":"${$.info.USR_TEL}","REGION_CODE":"${$.info.REGION_CODE}","chnlType":"${$.info.chnlType}","regionCode":"${$.info.regionCode}"}`,
+    body: `{"ACT_ID":"${$.info.ACT_ID}","REGION_CODE":"${$.info.REGION_CODE}","chnlType":"${$.info.chnlType}","regionCode":"${$.info.regionCode}"}`
   }
+  debug(opt)
   return new Promise(resolve => {
-    // console.log(opt);
     $.post(opt, async (err, resp, data) => {
       try {
         err && $.log(err);
@@ -193,7 +264,7 @@ function main() {
           data = JSON.parse(data);
           let text = '';
           if (data.errCode == 0) {
-            text = `🎉 账号 [${hideSensitiveData($.info?.USR_TEL, 3, 4) || $.index}] 签到成功`;
+            text = `🎉 账号 [${$.info?.USR_TEL ? hideSensitiveData($.info?.USR_TEL, 3, 4) : $.index}] 签到成功`;
             console.log(text);
             message += text;
             if (data?.data?.IS_AWARD == 1) {
@@ -221,7 +292,7 @@ function main() {
             }
           } else {
             console.log(JSON.stringify(data));
-            text = `❌ 账号 [${hideSensitiveData($.info?.USR_TEL, 3, 4) || $.index}] 签到失败，${data.errMsg}\n`;
+            text = `❌ 账号 [${$.info?.USR_TEL ? hideSensitiveData($.info?.USR_TEL, 3, 4) : $.index}] 签到失败，${data.errMsg}\n`;
             console.log(text);
             message += text;
           }
@@ -250,10 +321,8 @@ async function getGift() {
     },
     body: `{"mebId":"${$.info.MEB_ID}","actId":"${$.info.ACT_ID}","nodeDay":${$.nodeDay},"couponType":${$.couponType},"nodeCouponId":"${$.couponId}","dccpBscInfSn":"${$.dccpBscInfSn}","chnlType":"${$.info.chnlType}","regionCode":"${$.info.regionCode}"}`
   }
+  debug(opt);
   return new Promise(resolve => {
-    debug(opt.url);
-    debug(opt.headers);
-    debug(opt.body);
     $.post(opt, async (err, resp, data) => {
       try {
         err && $.log(err);
@@ -280,23 +349,63 @@ async function getGift() {
   })
 }
 
+
+// 获取最新版本
+async function getLatestVersion() {
+  let opt = {
+    url: `https://itunes.apple.com/cn/lookup?id=${AppId}`,
+    headers: { "Content-Type": "application/x-www-form-urlencoded" }
+  }
+  return new Promise(resolve => {
+    $.get(opt, async (err, resp, data) => {
+      try {
+        err && $.log(err);
+        if (data) {
+          try {
+            let result = JSON.parse(data);
+            const { trackName, bundleId, version, currentVersionReleaseDate, } = result.results[0];
+            AppVersion = version;
+            !$.isNode() ? $.setdata(AppVersion, 'JHSH_VERSION') : '';  // 数据持久化
+            console.log(`版本信息: ${trackName} ${version}\nBundleId: ${bundleId} \n更新时间: ${currentVersionReleaseDate}`);
+          } catch (e) {
+            $.log(e);
+          };
+        } else {
+          console.log(`版本信息获取失败\n`);
+        }
+      } catch (error) {
+        $.log(error);
+      } finally {
+        resolve();
+      }
+    })
+  })
+}
+
+
 // 数据脱敏
 function hideSensitiveData(string, head_length = 2, foot_length = 2) {
   let star = '';
-  for (var i = 0; i < string.length - head_length - foot_length; i++) {
-    star += '*';
+  try {
+    for (var i = 0; i < string.length - head_length - foot_length; i++) {
+      star += '*';
+    }
+    return string.substring(0, head_length) + star + string.substring(string.length - foot_length);
+  } catch (e) {
+    console.log(e);
+    return string;
   }
-  return string.substring(0, head_length) + star + string.substring(string.length - foot_length);
 }
 
 
 // DEBUG
-function debug(text) {
+function debug(content) {
+  let text = '\n----- debug -----\n';
   if ($.is_debug === 'true') {
-    if (typeof text == "string") {
-      console.log(text);
-    } else if (typeof text == "object") {
-      console.log($.toStr(text));
+    if (typeof content == "string") {
+      console.log(text + content + text);
+    } else if (typeof content == "object") {
+      console.log(text + $.toStr(content) + text);
     }
   }
 }
