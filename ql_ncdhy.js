@@ -12,6 +12,7 @@ $.notifyMsg = []
 $.is_debug = ($.isNode() ? process.env.IS_DEDUG : $.getdata('is_debug')) || 'false';
 //自动清除无效任务
 $.is_remove = ($.isNode() ? process.env["teaMilk_remove"] : $.getdata("teaMilk_remove")) || 'false';
+$.is_water = ($.isNode() ? process.env["yht_water"] : $.getdata("yht_water")) || 'false';
 $.doFlag = { "true": "✅", "false": "⛔️" };
 //成功个数
 $.succCount = 0;
@@ -115,12 +116,16 @@ async function yhtTree(store) {
         //记录助力次数
         if (!helpRes.match(/失败|不可以/)) await uploadInviteUser(inviteUser);
         if ($.ckStatus) {
-            for (let i = 1; i <= 20; i++) {
-                let res = await nutrient();
-                if (res) break;
+            if ($.is_water == "false") {
+                for (let i = 1; i <= 400; i++) {
+                    let res = await nutrient();
+                    if (res) break;
+                }
             }
+            await sendReward();
+            await takePartInNurture();
             //每周二领取优惠券
-            await takePartInReceive("995087480964071424");
+            //  await takePartInReceive("995087480964071424");
             let result = await stageInfo();
             $.notifyMsg.push(`[${user.userName}] ${result}`);
             $.succCount++;
@@ -184,7 +189,7 @@ async function yhtTree(store) {
             }
             let res = await fetch(opts);
             $.info(`施肥: ${res?.message}`);
-            return res?.message.match(/当前可用养料不足/)
+            return res?.message.match(/当前可用养料不足|不存在/)
         } catch (e) {
             $.ckStatus = false;
             $.error(`${e}`)
@@ -232,6 +237,44 @@ async function yhtTree(store) {
             $.error(`${e}`)
         }
     }
+    //领取奖品
+    async function sendReward() {
+        try {
+            const opts = {
+                url: "/web/cmk-center/nurture/sendReward",
+                type: "post",
+                dataType: "json",
+                body: {
+                    "appid": "wx4080846d0cec2fd5",
+                    "activityId": "1025694534292430849"
+                }
+            }
+            let res = await fetch(opts);
+            $.info(`领取奖品: ${res?.data?.[0]?.rewardName || res?.message}`);
+        } catch (e) {
+            this.ckStatus = false;
+            $.error(`${e}`)
+        }
+    }
+    //种植果树
+    async function takePartInNurture() {
+        try {
+            const opts = {
+                url: "/web/cmk-center/nurture/takePartInNurture",
+                type: "post",
+                dataType: "json",
+                body: {
+                    "appid": "wx4080846d0cec2fd5",
+                    "activityId": "1025694534292430849"
+                }
+            }
+            let res = await fetch(opts);
+            $.info(`种植果树: ${res?.message}`);
+        } catch (e) {
+            this.ckStatus = false;
+            $.error(`${e}`)
+        }
+    }
 }
 
 //奶茶日常签到
@@ -255,6 +298,8 @@ async function teaMilkCheckin(store) {
             $.log(`[INFO] 活动id不存在,停止执行「${store.name}」签到任务\n`);
             break;
         }
+        //休眠5秒
+        await $.wait(5e3);
     }
     $.notifyList.push({
         name: `${store.name}签到`,
@@ -481,16 +526,21 @@ async function loadCryptoJS() {
 
 //获取助力用户id
 async function getInviteUser() {
-    const BASE_URL = `https://ap-south-1.aws.data.mongodb-api.com/app/data-gkrxjno/endpoint/data/v1/action`;
-    const DATA_SOURCE = "Sliverkiss";
-    const DATABASE = "yht";
-    const COLLECTION = "yht_db"
-    const API_KEY = "B0nLTBloCy06IXZ1uTPoBQRNuzGzzVJ0qBWE7gGX1mYNCdRBiKxIK4j8V3RDbkaM"
-    const Mong = MongoDB(BASE_URL, DATA_SOURCE, DATABASE, COLLECTION, API_KEY)
-    let res = await Mong.find({ type: "yht" });
-    let userList = res?.documents;
-    let user = userList.find(e => e.count < 3) ?? { "inviteUserId": "904328271441838081" };
-    return user;
+    try {
+        const BASE_URL = `https://ap-south-1.aws.data.mongodb-api.com/app/data-gkrxjno/endpoint/data/v1/action`;
+        const DATA_SOURCE = "Sliverkiss";
+        const DATABASE = "yht";
+        const COLLECTION = "yht_db"
+        const API_KEY = "B0nLTBloCy06IXZ1uTPoBQRNuzGzzVJ0qBWE7gGX1mYNCdRBiKxIK4j8V3RDbkaM"
+        const Mong = MongoDB(BASE_URL, DATA_SOURCE, DATABASE, COLLECTION, API_KEY)
+        let res = await Mong.find({ type: "yht" });
+        let userList = res?.documents || [];
+        let user = userList?.find(e => e.count < 3) ?? { "inviteUserId": "904328271441838081" };
+        return user;
+    } catch (e) {
+        $.error(e);
+        return { "inviteUserId": "904328271441838081" }
+    }
 }
 
 //上传并记录助力次数
